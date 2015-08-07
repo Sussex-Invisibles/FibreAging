@@ -37,7 +37,9 @@ def getResultsNew(folderName):
     #Dividing to get the average 
     for i in range(len(average_aged_spectrum)):
        average_aged_spectrum[i] = average_aged_spectrum[i]/numReadings
-    
+    print "Length of aged: "+str(len(average_aged_spectrum))
+    print "Length of dark: "+str(len(dark_spectrum))
+    print "Length of wavelenght: "+str(len(wavelengths))
     for i in range(len(wavelengths)):
         num = (average_aged_spectrum[i]-dark_spectrum[i])*100
         den = (reference_spectrum[i]-dark_spectrum[i])
@@ -115,6 +117,8 @@ def parseWavelengths(inputFile):
         if line.strip() == ">>>>>End Processed Spectral Data<<<<<" or line.strip() == ">>>>>End Spectral Data<<<<<":
             break
         data = line.strip().split()
+        if len(output)>1 and output[-1]==float(data[0]) :
+            print "Possible Staturation of Spectrometer has occured in ",inputFile
         output.append(float(data[0]))
 
     return output
