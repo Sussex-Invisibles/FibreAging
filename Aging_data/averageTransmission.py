@@ -1,6 +1,7 @@
 import transmission_plot as tp
 import matplotlib.pyplot as plt
 import math
+import datetime
 
 #Method to get the weighting array
 def GetWeightingArray():
@@ -51,14 +52,22 @@ def averageArrayWavelengthWeighted(array1,index, weightingArray, weightingIndex,
     error = math.sqrt(error)
     return weightedMean,error
 
-#plot average transmission percentage 
+def folderNameToDate(folderName):
+    dateList = folderName.split("_")
+    print dateList
+    Outdate = datetime.date(int(dateList[2]),int(dateList[1]),int(dateList[0])) 
+    return Outdate
+
+#plot average transmission percentage as a function of date
 def plotAverages(fileList):
     weightIndex, weightArray = GetWeightingArray()
     averageList = []
     errorList = []
+    dateList = []
     numReading = []
     i = 1
     for folder in fileList:
+        timediff = (folderNameToDate(folder)-folderNameToDate(fileList[0])).days
         print "ON FOLDER: "+folder
         wavelength = []
         transmission = []
@@ -67,7 +76,7 @@ def plotAverages(fileList):
         else:
             wavelength, transmission = tp.getResultsNew(folder)
         average,error = averageArrayWavelengthWeighted(transmission,wavelength,weightArray,weightIndex,400,700)
-        numReading.append(i)
+        numReading.append(timediff)
         averageList.append(average)
         errorList.append(error)
         i+=1
@@ -96,7 +105,7 @@ def plotSpectrum(fileList):
     plt.show()
 
 def main():
-    fileList = [ "07_04_2015" , "13_04_2015" ,"16_04_2015" ,"20_04_2015" ,"23_04_2015","27_04_2015",  "28_04_2015", "03_05_2015" , "09_06_2015" , "16_06_2015", "23_06_2015","30_06_2015","09_07_2015","14_07_2015","21_07_2015","28_07_2015","04_08_2015"]
+    fileList = [ "07_04_2015" , "13_04_2015" ,"16_04_2015" ,"20_04_2015" ,"23_04_2015","27_04_2015",  "28_04_2015", "03_05_2015" , "09_06_2015" , "16_06_2015", "23_06_2015","30_06_2015","09_07_2015","14_07_2015","21_07_2015","28_07_2015","04_08_2015","11_08_2015","19_08_2015"]
     plotAverages(fileList)    
 
 if __name__ == "__main__":
