@@ -16,6 +16,16 @@ def GetWeightingArray():
         weight.append(float(data[1]))
     return index,weight
 
+def GetConnectionErrorArray():
+    index = []
+    error = []
+    inFile = open('transSpectraRelConnectionError.txt',"r")
+    for line in inFile:
+        data = line.strip().split()
+        index.append(float(data[0]))
+        error.append(float(data[1]))
+    return index,error
+
 #Method to find index of array corresponding to entry closest to value
 def findClosestIndex(array,number):
     closest = 10000
@@ -39,18 +49,23 @@ def averageArrayWavelengthWeighted(array1,arrayError,index, weightingArray, weig
     average =0.0
     sumWeight=0.0
     error=0.0
+    averageConnectionError = 0
+    connection_wavelength, connection_error = GetConnectionErrorArray()
     for counter in range(0,len(array1)):
         entry = array1[counter]
         entryError = arrayError[counter]
+        connectionError = connection_error[counter]
         #print "Entry orig: "+str(entry)
         if(index[counter]>lower and index[counter]<upper):
-            closestIndex = findClosestIndex(weightingArray,index[counter])
+            closestIndex = findClosestIndex(weightingIndex,index[counter])
             weight = weightingArray[closestIndex]
             sumWeight+=weight
             average += (entry*weight)
             error += (weight*entryError)**2
+            averageConnectionError += weight*entry*connectionError
     error = math.sqrt(error) 
     error /= sumWeight
+    error += (averageConnectionError/sumWeight)
     print str(average)
     print str(sumWeight)
     weightedMean = average/sumWeight
@@ -83,6 +98,7 @@ def folderNameToDate(folderName):
 
 #plot average transmission percentage as a function of date
 def plotAverages(fileList, singleValue=False):
+    connection_wavelength, connection_error = GetConnectionErrorArray()
     weightIndex, weightArray = GetWeightingArray()
     agingFactor = 2**4.72
     agingFactorError = 2**4.75-2**4.72
@@ -108,7 +124,8 @@ def plotAverages(fileList, singleValue=False):
             for j in range(len(wavelength)):
                 if wavelength[j] == 505.62:
                     average = transmission[j]
-                    AVerror = error[j]
+                    connectionError = connection_error[j]
+                    AVerror = math.sqrt(error[j]**2+(connection_error[j]*transmission[j])**2)
                     print str(AVerror)
         else:
             average,AVerror = averageArrayWavelengthWeighted(transmission,error,wavelength,weightArray,weightIndex,400,700)
@@ -148,26 +165,37 @@ def plotAverages(fileList, singleValue=False):
     #plt.xticks(numReading,fileList,rotation=45)
 
 def plotSpectrum(fileList):
-    i = 1
-    for folder in fileList:
-        if i<9:
-            wavelength, transmission = tp.getResultsOld(folder)
-        else:
-            wavelength, transmission = tp.getResultsNew(folder)
-        i+=1
-        plt.plot(wavelength,transmission,label=folder)
-        plt.ylabel("Transmission %")
-        plt.xlabel("Wavelength")
+    wavelength, transmission, err = tp.getResultsNew(fileList)
+    wavelengthWeight, weight = GetWeightingArray()
+    low_index = 0
+    high_index = 0
+    for i in range(len(wavelength)):
+        if wavelength[i] > 400:
+            low_index = i
+            break
 
-    plt.axis([400,700,0,40])
+    for i in range(len(wavelength)-1,0,-1):
+        if wavelength[i] < 700:
+            high_index = i
+            break
+    transmission = transmission[low_index:high_index]
+    wavelength = wavelength[low_index:high_index]
+    transmission = numpy.multiply(transmission,1.0/numpy.amax(transmission))
+    plt.plot(wavelength,transmission,label=fileList)
+    weight = numpy.multiply(weight,1.0/numpy.amax(weight))
+    plt.plot(wavelengthWeight,weight,label="TELLIE SPECTRUM")
+    plt.xlabel("Wavelength")
+
+    plt.axis([400,700,0,1])
     plt.legend()
     plt.show()
 
 def main():
-    fileList = [ "07_04_2015" , "13_04_2015" ,"16_04_2015" ,"20_04_2015" ,"23_04_2015","27_04_2015",  "28_04_2015", "03_05_2015" , "09_06_2015" , "16_06_2015", "23_06_2015","30_06_2015","09_07_2015","14_07_2015","21_07_2015","28_07_2015","04_08_2015","19_08_2015","26_08_2015","01_09_2015","15_09_2015","22_09_2015"]
+    fileList = [ "07_04_2015" , "13_04_2015" ,"16_04_2015" ,"20_04_2015" ,"23_04_2015","27_04_2015",  "28_04_2015", "03_05_2015" , "09_06_2015" , "16_06_2015", "23_06_2015","30_06_2015","09_07_2015","14_07_2015","21_07_2015","28_07_2015","04_08_2015","19_08_2015","26_08_2015","01_09_2015","15_09_2015","22_09_2015","06_10_2015","14_10_2015","21_10_2015","27_10_2015","03_11_2015"]
     plotAverages(fileList,True)    
-    plotAverages(fileList)    
+    #plotAverages(fileList)    
     plt.show()
+    #plotSpectrum("15_09_2015")
 
 if __name__ == "__main__":
         main()

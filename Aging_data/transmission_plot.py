@@ -3,10 +3,9 @@ import os
 import sys
 import matplotlib.pyplot as plt
 import math
+import csv
+import numpy as np
 
-sigma_ref = 68.54
-sigma_aged = 39.44
-sigma_dark = 1.61
 
 #Method to get the error on the transmission from the errors on the various spectrums
 def calcTransmissionUncertainty(referenceSpectrum, darkSpectrum, transmissionFibreSpectrum):
@@ -25,11 +24,25 @@ def calcTransmissionUncertainty(referenceSpectrum, darkSpectrum, transmissionFib
             transmission_uncertainty[i] = math.sqrt(transmission_uncertainty[i])*100
     return transmission_uncertainty
 
+
+def GetConnectionErrorArray():
+    index = []
+    error = []
+    inFile = open('transSpectraRelConnectionError.txt',"r")
+    for line in inFile:
+        data = line.strip().split()
+        index.append(float(data[0]))
+        error.append(float(data[1]))
+    return index,error
+
+
+
 #For my data where the transmission prob needs to be calculated
 def getResultsNew(folderName):
     fileList = os.listdir(folderName)
     dark_spectrum = []
     transmission_spectrum = []
+    tot_transmission_spectrum = []
     reference_spectrum = []
     average_aged_error  = []
     sumWeights = []
@@ -44,39 +57,21 @@ def getResultsNew(folderName):
         
         if "reference" in files and files.endswith(".txt"):
             reference_spectrum =parseData(folderName+"/"+files)
-    sumWeights = [0] * len(wavelengths)
-    transmission_spectrum = [0]* len(wavelengths)
     for files in fileList: 
         #Now getting transmission data and averaging
         if "transmission" in files and files.endswith(".txt"):
-            if numReadings == 0:
-                long_fibre_spectrum =(parseData(folderName+"/"+files))
-                transmission_uncertainty = calcTransmissionUncertainty(reference_spectrum,dark_spectrum,long_fibre_spectrum)
-                for i in range(len(long_fibre_spectrum)):
-                    #Making sure no division by 0
-                    if reference_spectrum[i] != 0 and transmission_uncertainty[i] != 0:
-                        transmission_value = (long_fibre_spectrum[i]-dark_spectrum[i])*100/(reference_spectrum[i]-dark_spectrum[i])
-                        transmission_spectrum[i] +=(transmission_value/(transmission_uncertainty[i]**2))
-                        sumWeights[i] +=(1.0/(transmission_uncertainty[i]**2))
-            else:
-                long_fibre_spectrum  =(parseData(folderName+"/"+files))
-                transmission_uncertainty = calcTransmissionUncertainty(reference_spectrum,dark_spectrum,long_fibre_spectrum)
-                for i in range(len(long_fibre_spectrum)):
-                    if reference_spectrum[i] != 0 and transmission_uncertainty[i] != 0:
-                        transmission_value = (long_fibre_spectrum[i]-dark_spectrum[i])/(reference_spectrum[i]-dark_spectrum[i])*100
-                        transmission_spectrum[i] += (transmission_value/(transmission_uncertainty[i]**2))
-                        sumWeights[i] += (1.0/(transmission_uncertainty[i]**2))
-            
+            long_fibre_spectrum =(parseData(folderName+"/"+files))
+            tot_transmission_spectrum.append(long_fibre_spectrum)
             numReadings+=1
-    
-    for i in range(len(wavelengths)):
-        if sumWeights[i] != 0:
-            transmission_spectrum[i] /= sumWeights[i]
-            #Multiply by 100 to get percentage
-            average_aged_error.append(math.sqrt(1.0/sumWeights[i]))
-        else:
-            average_aged_error.append(100)
-            transmission_spectrum[i] = 0
+    transmission_spectrum = np.mean(tot_transmission_spectrum,0)
+    num_array = np.subtract(transmission_spectrum,dark_spectrum)
+    num_array = np.multiply(num_array,100.)
+    den_array = np.subtract(reference_spectrum,dark_spectrum)
+    transmission_spectrum = np.divide(num_array,den_array)
+    average_aged_error = np.std(tot_transmission_spectrum,0)
+    average_aged_error = np.divide(average_aged_error,np.sqrt(numReadings))
+    average_aged_error = np.divide(average_aged_error,den_array)
+    average_aged_error = np.multiply(average_aged_error,100.)
     return wavelengths, transmission_spectrum, average_aged_error
 
 
@@ -84,6 +79,7 @@ def getResultsOld(folderName):
     fileList = os.listdir(folderName)
     dark_spectrum = []
     transmission_spectrum = []
+    tot_transmission_spectrum = []
     reference_spectrum = []
     average_aged_error  = []
     sumWeights = []
@@ -98,39 +94,21 @@ def getResultsOld(folderName):
         
         if "reference" in files and files.endswith(".txt"):
             reference_spectrum =parseData(folderName+"/"+files)
-    sumWeights = [0] * len(wavelengths)
-    transmission_spectrum = [0]* len(wavelengths)
-    for files in fileList: 
-        #Now getting transmission data and averaging
         if "converted_transmission" in files and files.endswith(".txt"):
-            if numReadings == 0:
                 long_fibre_spectrum =(parseConvertedData(folderName+"/"+files))
-                transmission_uncertainty = calcTransmissionUncertainty(reference_spectrum,dark_spectrum,long_fibre_spectrum)
-                for i in range(len(long_fibre_spectrum)):
-                    #Making sure no division by 0
-                    if reference_spectrum[i] != 0 and transmission_uncertainty[i] != 0:
-                        transmission_value = (long_fibre_spectrum[i]-dark_spectrum[i])*100/(reference_spectrum[i]-dark_spectrum[i])
-                        transmission_spectrum[i] +=(transmission_value/(transmission_uncertainty[i]**2))
-                        sumWeights[i] +=(1.0/(transmission_uncertainty[i]**2))
-            else:
-                long_fibre_spectrum  =(parseConvertedData(folderName+"/"+files))
-                transmission_uncertainty = calcTransmissionUncertainty(reference_spectrum,dark_spectrum,long_fibre_spectrum)
-                for i in range(len(long_fibre_spectrum)):
-                    if reference_spectrum[i] != 0 and transmission_uncertainty[i] != 0:
-                        transmission_value = (long_fibre_spectrum[i]-dark_spectrum[i])/(reference_spectrum[i]-dark_spectrum[i])*100
-                        transmission_spectrum[i] += (transmission_value/(transmission_uncertainty[i]**2))
-                        sumWeights[i] += (1.0/(transmission_uncertainty[i]**2))
-            
-            numReadings+=1
+                tot_transmission_spectrum.append(long_fibre_spectrum)
+                numReadings+=1
     
-    for i in range(len(wavelengths)):
-        if sumWeights[i] != 0:
-            transmission_spectrum[i] /= sumWeights[i]
-            #Multiply by 100 to get percentage
-            average_aged_error.append(math.sqrt(1.0/sumWeights[i]))
-        else:
-            average_aged_error.append(100)
-            transmission_spectrum[i] = 0
+    transmission_spectrum = np.mean(tot_transmission_spectrum,0)
+    num_array = np.subtract(transmission_spectrum,dark_spectrum)
+    num_array = np.multiply(num_array,100.)
+    den_array = np.subtract(reference_spectrum,dark_spectrum)
+    transmission_spectrum = np.divide(num_array,den_array)
+    average_aged_error = np.std(tot_transmission_spectrum,0)
+    average_aged_error = np.divide(average_aged_error,np.sqrt(numReadings))
+    average_aged_error = np.divide(average_aged_error,den_array)
+    average_aged_error = np.multiply(average_aged_error,100.)
+    
     return wavelengths, transmission_spectrum, average_aged_error
 
 
@@ -176,6 +154,10 @@ def parseWavelengths(inputFile):
 
 def main():
   wavelengths,transmission_spectrum,errorList = getResultsNew(sys.argv[1])
+  connWavelengths, connErr = GetConnectionErrorArray()
+  for i in range(len(errorList)):
+      pass
+      #errorList[i] = np.sqrt(errorList[i]**2+(connErr[i]*transmission_spectrum[i])**2)
   plt.errorbar(wavelengths,transmission_spectrum,yerr=errorList)
   plt.plot(wavelengths,transmission_spectrum)
   plt.ylabel("Transmission %")
